@@ -3,6 +3,7 @@ export enum DependencyResolutionErrorCode {
   CircularDependencyFailure = 'CircularDependencyFailure',
   ResolverIsNotDefined = 'ResolverIsNotDefined',
   InstantiationFailure = 'InstantiationFailure',
+  InitializationFailure = 'InitializationFailure',
 }
 
 export class DependencyResolutionError extends Error {

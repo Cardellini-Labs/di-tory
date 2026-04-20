@@ -16,7 +16,7 @@ import {
 export const scope = {
   module: 'module',
   singleton: 'singleton',
-};
+} as const;
 
 const createModule = <
   Pr extends object = { [key in never]: never },
@@ -41,6 +41,7 @@ const createModule = <
 
   const resolutionStack = new Stack<keyof M>();
   const moduleInstances = new Map<Name, any>();
+  let initializersToCall: Array<() => void>;
 
   const self = {} as Pr & Pb;
   const module = {} as Pb;
@@ -79,6 +80,10 @@ const createModule = <
 
     if (instances.has(name)) return instances.get(name);
 
+    const isTop = resolutionStack.length === 0;
+
+    if (isTop) initializersToCall = [];
+
     const currentStack = resolutionStack.toStringArray();
 
     try {
@@ -109,8 +114,27 @@ const createModule = <
 
     instances.set(name, instance);
 
-    if (resolutionStack.length === 0) {
-      (initializers[name] as any)?.call(instance, self, params);
+    const initializer: any = initializers[name];
+
+    if (typeof initializer === 'function') {
+      initializersToCall.push(() => {
+        try {
+          initializer.call(instance, self, params);
+        } catch (err) {
+          if (err instanceof DRError) throw err;
+          throw new DRError(
+            DRErrType.InitializationFailure,
+            currentStack,
+            String(name),
+            err,
+          );
+        }
+      });
+    }
+
+    if (isTop) {
+      initializersToCall.forEach((init) => init());
+      initializersToCall = [];
     }
 
     return instance;

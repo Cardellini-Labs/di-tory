@@ -5,12 +5,10 @@ import {
   DependencyResolutionErrorCode,
 } from '../DependencyResolutionError';
 
-const createModuleBuilder = () => (Module as unknown as any)();
-
 describe('Light Module', () => {
   describe('basics', () => {
     it('resolves a dependency tree', () => {
-      const main = createModuleBuilder()
+      const main = Module()
         .private({
           b: () => 1,
         })
@@ -30,7 +28,7 @@ describe('Light Module', () => {
       const a = jest.fn(({ b }: { b: number }) => b + 1);
       const c = jest.fn(({ a }: { a: number }) => a + 1);
 
-      const main = createModuleBuilder()
+      const main = Module()
         .private({ b })
         .private({ a })
         .public({ c })
@@ -45,7 +43,7 @@ describe('Light Module', () => {
     });
 
     it('returns undefined when a dependency is missing (light version is lenient)', () => {
-      const main = createModuleBuilder()
+      const main = (Module as any)()
         .public({
           a: ({ b }: { b: number }) => b + 1,
         })
@@ -55,7 +53,7 @@ describe('Light Module', () => {
     });
 
     it('wraps errors thrown by resolvers', () => {
-      const main = createModuleBuilder()
+      const main = Module()
         .public({
           a: () => {
             throw new Error('boom');
@@ -74,7 +72,7 @@ describe('Light Module', () => {
     });
 
     it('detects circular dependencies', () => {
-      const main = createModuleBuilder()
+      const main = (Module as any)()
         .public({
           a: ({ b }: { b: number }) => b + 1,
         })
@@ -93,7 +91,7 @@ describe('Light Module', () => {
     });
 
     it('throws when accessing private members from the public module', () => {
-      const main: Record<string, unknown> = createModuleBuilder()
+      const main: Record<string, unknown> = Module()
         .private({
           secret: () => 42,
         })
@@ -111,7 +109,7 @@ describe('Light Module', () => {
 
   describe('initializers', () => {
     it('runs initializers once resolution completes', () => {
-      const main = createModuleBuilder()
+      const main = (Module as any)()
         .public({
           config: () => ({ ready: false }),
         })
@@ -128,25 +126,30 @@ describe('Light Module', () => {
       expect(main.config.mode).toBe('test');
     });
 
-    it('does not run dependency initializers mid-resolution', () => {
+    it('runs dependency initializers mid-resolution', () => {
       const childInit = jest.fn();
       const parentInit = jest.fn();
 
-      const main = createModuleBuilder()
+      const main = Module()
         .private({
-          child: () => ({ ready: false }),
+          child: () => ({ childReady: false }),
         })
         .public({
-          parent: ({ child }: { child: { ready: boolean } }) => child,
+          parent: ({ child }: { child: { childReady: boolean } }) => ({
+            get ready() {
+              return child.childReady;
+            },
+            set ready(ready: boolean) {
+              child.childReady = ready;
+            },
+          }),
         })
         .init({
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          child(this: any) {
-            this.ready = true;
+          child() {
+            this.childReady = false;
             childInit();
           },
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          parent(this: any) {
+          parent() {
             this.ready = true;
             parentInit();
           },
@@ -154,14 +157,14 @@ describe('Light Module', () => {
         .create();
 
       expect(main.parent.ready).toBe(true);
-      expect(childInit).not.toHaveBeenCalled();
+      expect(childInit).toHaveBeenCalledTimes(1);
       expect(parentInit).toHaveBeenCalledTimes(1);
     });
   });
 
   describe('implementations', () => {
     it('exposes public implementations that can access module items', () => {
-      const main = createModuleBuilder()
+      const main = Module()
         .private({
           value: () => 2,
         })
@@ -176,7 +179,7 @@ describe('Light Module', () => {
     });
 
     it('allows public implementations to consume private implementations', () => {
-      const main = createModuleBuilder()
+      const main = Module()
         .private({
           value: () => 3,
         })
@@ -199,7 +202,7 @@ describe('Light Module', () => {
   describe('scopes', () => {
     it('creates new module-scoped instances per module', () => {
       const factory = jest.fn(() => ({ id: Math.random() }));
-      const moduleBuilder = createModuleBuilder().public({ service: factory });
+      const moduleBuilder = Module().public({ service: factory });
 
       const first = moduleBuilder.create();
       const second = moduleBuilder.create();
@@ -212,7 +215,7 @@ describe('Light Module', () => {
 
     it('shares singleton-scoped instances across modules', () => {
       const factory = jest.fn(() => ({ id: Math.random() }));
-      const moduleBuilder = createModuleBuilder().public(
+      const moduleBuilder = Module().public(
         { service: factory },
         scope.singleton,
       );
@@ -227,7 +230,7 @@ describe('Light Module', () => {
 
   describe('guards', () => {
     it('prevents extending a module after initialization (public)', () => {
-      const builder = createModuleBuilder()
+      const builder = Module()
         .public({ a: () => 1 })
         .init({
           a() {},
@@ -241,7 +244,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after creation (public)', () => {
-      const builder = createModuleBuilder().public({ a: () => 1 });
+      const builder = Module().public({ a: () => 1 });
       builder.create();
 
       expect(() =>
@@ -252,7 +255,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after creation (private)', () => {
-      const builder = createModuleBuilder().private({ a: () => 1 });
+      const builder = Module().private({ a: () => 1 });
       builder.create();
 
       expect(() =>
@@ -263,7 +266,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after creation (publicImpl)', () => {
-      const builder = createModuleBuilder().publicImpl({ a: () => 1 });
+      const builder = Module().publicImpl({ a: () => 1 });
       builder.create();
 
       expect(() =>
@@ -274,7 +277,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after creation (privateImpl)', () => {
-      const builder = createModuleBuilder().privateImpl({ a: () => 1 });
+      const builder = Module().privateImpl({ a: () => 1 });
       builder.create();
 
       expect(() =>
@@ -285,7 +288,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after initialization (private)', () => {
-      const builder = createModuleBuilder()
+      const builder = Module()
         .private({ a: () => 1 })
         .init({
           a() {},
@@ -299,7 +302,7 @@ describe('Light Module', () => {
     });
 
     it('prevents extending a module after initialization (implementations)', () => {
-      const builder = createModuleBuilder()
+      const builder = Module()
         .publicImpl({
           a: () => 1,
         })
@@ -316,7 +319,7 @@ describe('Light Module', () => {
 
     it('validates resolver types on registration', () => {
       expect(() =>
-        createModuleBuilder()
+        Module()
           .public({
             a: 1 as any,
           })
@@ -326,7 +329,7 @@ describe('Light Module', () => {
 
     it('validates private resolver types on registration', () => {
       expect(() =>
-        createModuleBuilder()
+        Module()
           .private({
             a: 1 as any,
           })

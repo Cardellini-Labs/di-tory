@@ -39,6 +39,7 @@ export const createModule = <
   const resolutionStack = new Stack<keyof M>();
   const moduleInstances: FactoryInstanceMap = new Map();
   const publicNames: Set<PropertyKey> = new Set(propertyKeys(publicResolvers));
+  let initializersToCall: Array<() => void>;
 
   const self = new Proxy(Object.create(null) as M, {
     get(_, prop) {
@@ -79,8 +80,11 @@ export const createModule = <
   };
 
   const resolve = <Item extends keyof M>(item: Item) => {
-    if (resolutionStack.length === 0) {
+    const isTop = resolutionStack.length === 0;
+
+    if (isTop) {
       transientInstances = new Map();
+      initializersToCall = [];
     }
 
     const resolver = resolvers[item];
@@ -126,8 +130,30 @@ export const createModule = <
 
     getInstances(resolver).set(item, instance);
 
-    if (resolutionStack.length === 0) {
-      initializers?.[item]?.call(instance, self, params);
+    const initializer: any = initializers?.[item];
+
+    if (typeof initializer === 'function') {
+      initializersToCall.push(() => {
+        try {
+          initializer.call(instance, self, params);
+        } catch (err) {
+          if (err instanceof DRError) throw err;
+          throw new DRError(
+            DRErrType.InitializationFailure,
+            currentStack,
+            String(item),
+            err,
+          );
+        }
+      });
+    }
+
+    if (isTop) {
+      try {
+        initializersToCall.forEach((init) => init());
+      } finally {
+        initializersToCall = [];
+      }
     }
 
     return instance;

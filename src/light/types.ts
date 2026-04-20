@@ -47,16 +47,16 @@ export interface IExtendable<
   Params extends object,
 > {
   private<NPr extends NotOf<Pr & Pb>, NP extends object>(
-    resolvers: Resolvers<NPr, Pr & Pb, NP & Params>,
-    scope?: Scope,
+    module: Resolvers<NPr, Pr & Pb, NP & Params>,
+    scope?: ScopeType,
   ): ModuleBuilder<
     { [p in keyof (Pr & NPr)]: (Pr & NPr)[p] },
     Pb,
     { [p in keyof (Params & NP)]: (Params & NP)[p] }
   >;
   public<NPb extends NotOf<Pr & Pb>, NP extends object>(
-    resolvers: Resolvers<NPb, Pr & Pb, NP & Params>,
-    scope?: Scope,
+    module: Resolvers<NPb, Pr & Pb, NP & Params>,
+    scope?: ScopeType,
   ): ModuleBuilder<
     Pr,
     { [p in keyof (Pb & NPb)]: (Pb & NPb)[p] },
