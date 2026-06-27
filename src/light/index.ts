@@ -4,14 +4,27 @@ import type {
   ModuleBuilder,
   ModuleType,
   NotOf,
+  Resolver,
   Resolvers,
   ScopeType,
   SomeImpl,
+  MethodsOf,
 } from './types.js';
 import {
   DependencyResolutionError as DRError,
   DependencyResolutionErrorCode as DRErrType,
 } from '../DependencyResolutionError.js';
+
+export type {
+  ScopeType,
+  ModuleType,
+  Resolver,
+  Resolvers,
+  Initializers,
+  SomeImpl,
+  ModuleBuilder,
+  MethodsOf,
+} 
 
 export const scope = {
   module: 'module',
