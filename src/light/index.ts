@@ -24,7 +24,7 @@ export type {
   SomeImpl,
   ModuleBuilder,
   MethodsOf,
-} 
+};
 
 export const scope = {
   module: 'module',
