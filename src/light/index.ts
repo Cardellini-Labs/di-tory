@@ -29,7 +29,7 @@ export type {
 export const scope = {
   module: 'module',
   singleton: 'singleton',
-};
+} as const;
 
 const createModule = <
   Pr extends object = { [key in never]: never },
